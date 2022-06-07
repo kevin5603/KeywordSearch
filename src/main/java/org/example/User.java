@@ -2,12 +2,16 @@ package org.example;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.ParseRuleConfig;
+import org.example.model.Info;
 import org.example.service.FileParser;
 import org.example.service.FileScan;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -19,6 +23,7 @@ public class User {
     BlockingQueue<String> queue = new LinkedBlockingQueue<>();
     private ParseRuleConfig config;
     private FileScan fileScan;
+    Queue<Info> result = new ConcurrentLinkedQueue<>();
 
 
     public void start(String scanFolder, String keyword) {
@@ -42,9 +47,10 @@ public class User {
 
     public void startService() {
         ExecutorService service = Executors.newCachedThreadPool();
-        List<Future<List<String>>> futureList = new ArrayList<>();
+        
+        List<Future<List<Info>>> futureList = new ArrayList<>();
         while (!fileScan.isDone() || !queue.isEmpty()) {
-            Future<List<String>> future;
+            Future<List<Info>> future;
             try {
                 future = service.submit(new FileParser(queue.take(), config));
             } catch (InterruptedException e) {
@@ -55,7 +61,7 @@ public class User {
 
         futureList.forEach(future -> {
             try {
-                future.get().forEach(log::info);
+                result.addAll(future.get());
             } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException(e);
             }
@@ -63,18 +69,39 @@ public class User {
         service.shutdown();
     }
 
+    public void onlyShowFileName() {
+        List<String> distinctFileName = result.stream()
+                .map(i -> i.getFileName())
+                .distinct()
+                .collect(Collectors.toList());
+        log.info("========== only show filename ==========");
+        distinctFileName.forEach(log::info);
+        log.info("符合條件檔案數量: {}筆", distinctFileName.size());
+        log.info("========== end ==========");
+    }
 
+    public void showAll() {
+        log.info("========== show all message ==========");
+        result.forEach(i -> log.info("{}", i));
+        log.info("符合條件行數: {}筆", result.size());
+        log.info("========== end ==========");
+    }
 
-    public static void main(String[] args) {
-        String keyword = "Redis";
-        String scanFolder = "/Volumes/work/project/line-bot-demo";
-        ParseRuleConfig.ParseRuleConfigBuilder builder = new ParseRuleConfig.ParseRuleConfigBuilder();
-        ParseRuleConfig rule = builder.setScanFolder(scanFolder)
-                .addKeyword(keyword)
-                .addKeyword("Kevin")
-                .build();
+    public void filterSpecificPackage(String packageName) {
+        result.stream().forEach(info -> {
+            info.setFullPath(info.getFullPath().replaceAll(File.separator, "."));
+        });
+        result.stream()
+                .filter(info -> info.getFullPath().contains(packageName))
+                .forEach(info -> log.info("{}", info));
+    }
 
-        User user = new User();
-        user.start(rule);
+    /**
+     * 直接取得結果
+     * 可依自己需求做客製化處理
+     * @return
+     */
+    public Queue<Info> getResult() {
+        return result;
     }
 }

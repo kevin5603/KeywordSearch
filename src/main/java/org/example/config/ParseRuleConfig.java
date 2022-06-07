@@ -52,6 +52,10 @@ public class ParseRuleConfig {
         this.caseSensitive = builder.caseSensitive;
     }
 
+    public static ParseRuleConfigBuilder builder() {
+        return new ParseRuleConfigBuilder();
+    };
+
     /**
      * 預設不掃描副檔名
      * @return
@@ -79,6 +83,7 @@ public class ParseRuleConfig {
             add("png");
             add("html");
             add("properties");
+            add("log");
         }};
     }
 
