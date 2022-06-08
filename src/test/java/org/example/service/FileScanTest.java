@@ -28,7 +28,7 @@ class FileScanTest {
     void parseTest() {
         // given
         init();
-        int expectFileCount = 6;
+        int expectFileCount = 7;
         // when
         fileScan.parse();
         // then
